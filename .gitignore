@@ -1,0 +1,17 @@
+# Course materials — do not publish
+HW/*.pdf
+slides/
+*.zip
+
+# Python / notebooks
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.venv/
+venv/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
