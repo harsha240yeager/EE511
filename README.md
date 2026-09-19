@@ -2,4 +2,5 @@
 
 USC, Fall 2026. Working notes and write-ups.
 
-- `HW0.md` — Homework 1, Problem 1 (inner products, norms, angular similarity)
+- `HW0.md` — scratch notes for Homework 1, Problem 1
+- `hw1/main.tex` — Overleaf source for the HW1 write-up (compile this)

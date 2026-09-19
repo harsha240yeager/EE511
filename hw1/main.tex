@@ -1,0 +1,302 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{graphicx}
+\usepackage{hyperref}
+
+\graphicspath{{figures/}}
+\hypersetup{colorlinks=true,linkcolor=black,urlcolor=blue}
+
+\title{EE 511 Homework 1\\[0.4em]
+\large Machine Learning Hardware Accelerators}
+\author{Harsha Vardhan}
+\date{Fall 2026}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\newpage
+
+%======================================================================
+\section{Problem 1: Inner Products, Norms, and Angular Similarity}
+%======================================================================
+
+\subsection*{(a)}
+
+I need to show that for all \(x, y \in \mathbb{R}^n\),
+\[
+|x^\top y| \le \|x\|_2 \|y\|_2.
+\]
+Equality holds iff \(x\) and \(y\) are linearly dependent, i.e.\ there is some
+\(\lambda \in \mathbb{R}\) with \(x = \lambda y\) (this also covers the case
+where one of them is 0).
+
+\paragraph{Proof.}
+First if \(y = 0\): then \(x^\top y = 0\) and \(\|y\|_2 = 0\), so both sides
+are 0 and we have equality. Also \(y = 0 \cdot x\), so they are linearly
+dependent. Same thing if \(x = 0\).
+
+Now assume \(y \neq 0\). Following the hint, look at
+\[
+g(t) = \|x - ty\|_2^2 \ge 0 \qquad \text{for all } t \in \mathbb{R}.
+\]
+Expanding:
+\begin{align*}
+g(t)
+&= (x - ty)^\top (x - ty) \\
+&= x^\top x - t\, y^\top x - t\, x^\top y + t^2 y^\top y \\
+&= \|x\|_2^2 - 2t (x^\top y) + t^2 \|y\|_2^2.
+\end{align*}
+So \(g(t)\) is a quadratic \(at^2 + bt + c\) with
+\[
+a = \|y\|_2^2 > 0, \qquad b = -2x^\top y, \qquad c = \|x\|_2^2.
+\]
+Since \(a > 0\) and \(g(t) \ge 0\) for every real \(t\), this parabola never
+crosses the axis. That means the discriminant has to be \(\le 0\):
+\[
+\Delta = b^2 - 4ac = 4(x^\top y)^2 - 4\|y\|_2^2 \|x\|_2^2 \le 0.
+\]
+Dividing by 4,
+\[
+(x^\top y)^2 \le \|x\|_2^2 \|y\|_2^2
+\qquad \Rightarrow \qquad
+|x^\top y| \le \|x\|_2 \|y\|_2.
+\]
+
+\paragraph{Equality (\(\Rightarrow\)).}
+Suppose \(|x^\top y| = \|x\|_2 \|y\|_2\). If \(y = 0\) we already have
+dependence. If \(y \neq 0\), then \(\Delta = 0\), so \(g\) has a repeated root
+\(t_*\). Then \(g(t_*) = 0\), so \(\|x - t_* y\|_2 = 0\), so \(x = t_* y\).
+
+\paragraph{Equality (\(\Leftarrow\)).}
+Suppose \(x = \lambda y\). Then
+\[
+|x^\top y| = |\lambda| \|y\|_2^2,
+\qquad
+\|x\|_2 \|y\|_2 = |\lambda| \|y\|_2 \cdot \|y\|_2 = |\lambda| \|y\|_2^2.
+\]
+Same number, so equality holds. If \(\lambda \ge 0\) they point the same way
+and \(x^\top y = +\|x\|_2\|y\|_2\). If \(\lambda < 0\) they point opposite and
+we get the minus sign, but the absolute value still matches.
+
+%----------------------------------------------------------------------
+\subsection*{(b)}
+
+From (a), for any \(x, y \neq 0\),
+\[
+|x^\top y| \le \|x\|_2 \|y\|_2.
+\]
+Divide both sides by \(\|x\|_2 \|y\|_2 > 0\):
+\[
+\left| \frac{x^\top y}{\|x\|_2 \|y\|_2} \right| \le 1
+\qquad \Rightarrow \qquad
+\cos\theta \in [-1, 1].
+\]
+So the cosine formula actually lands in the range of cosine, which is why it's
+well defined.
+
+For \(+1\) I can just take two vectors in the same direction, e.g.
+\[
+x = \begin{pmatrix} 1 \\ 0 \\ 0 \end{pmatrix}, \qquad
+y = \begin{pmatrix} 2 \\ 0 \\ 0 \end{pmatrix}.
+\]
+Then \(x^\top y = 2\) and \(\|x\|_2\|y\|_2 = 1 \cdot 2 = 2\), so
+\(\cos\theta = 1\). Geometrically they are parallel and point the same way
+(angle is 0).
+
+For \(-1\),
+\[
+x = \begin{pmatrix} 1 \\ 0 \\ 0 \end{pmatrix}, \qquad
+y = \begin{pmatrix} -3 \\ 0 \\ 0 \end{pmatrix}.
+\]
+Then \(x^\top y = -3\) and \(\|x\|_2\|y\|_2 = 3\), so \(\cos\theta = -1\).
+These are parallel but opposite (angle is \(\pi\)).
+
+%----------------------------------------------------------------------
+\subsection*{(c)}
+
+Need \(\|x\|_2 \le \|x\|_1\) and \(\|x\|_1 \le \sqrt{n}\|x\|_2\) for all
+\(x \in \mathbb{R}^n\).
+
+\paragraph{First inequality.}
+As in the hint, compare squares:
+\begin{align*}
+\|x\|_1^2
+&= \left( \sum_{i=1}^n |x_i| \right)^2 \\
+&= \sum_{i=1}^n |x_i|^2 + \sum_{i \neq j} |x_i||x_j| \\
+&= \|x\|_2^2 + \sum_{i \neq j} |x_i||x_j|.
+\end{align*}
+Each cross term is \(\ge 0\), so \(\|x\|_1^2 \ge \|x\|_2^2\). Taking square
+roots (both sides \(\ge 0\)) gives \(\|x\|_2 \le \|x\|_1\).
+
+Equality when all the cross terms are 0, which means at most one \(x_i\) is
+nonzero. So the vector that hits equality is sparse, like
+\(x = (1, 0, \ldots, 0)^\top\). For this one, \(\|x\|_2 = \|x\|_1 = 1\).
+
+\paragraph{Second inequality.}
+Use (a) on \(z = (|x_1|, \ldots, |x_n|)^\top\) and the all-ones vector
+\(y = \mathbf{1}\):
+\[
+z^\top \mathbf{1} = \sum_i |x_i| = \|x\|_1,
+\qquad
+\|z\|_2 = \|x\|_2,
+\qquad
+\|\mathbf{1}\|_2 = \sqrt{n}.
+\]
+Cauchy--Schwarz:
+\[
+\|x\|_1 = |z^\top \mathbf{1}| \le \|z\|_2 \|\mathbf{1}\|_2 = \sqrt{n}\|x\|_2.
+\]
+Equality when \(z\) and \(\mathbf{1}\) are linearly dependent, i.e.\ all the
+\(|x_i|\) are equal. So this one is dense, e.g.\
+\(x = (1, 1, \ldots, 1)^\top\). Check: \(\|x\|_1 = n\) and
+\(\sqrt{n}\|x\|_2 = \sqrt{n} \cdot \sqrt{n} = n\).
+
+%----------------------------------------------------------------------
+\subsection*{(d)}
+
+Setup: \(N = 10^6\) vectors, \(d = 768\). The array has 768 lanes so one full
+dot product is 1 cycle. A square root takes 20 cycles, a division takes 30,
+and the MAC array stalls during both. The query norm is computed once and
+cached. Also \(\|v\|_2^2 = v^\top v\), so getting a stored vector's norm costs
+one extra dot product before the square root.
+
+\paragraph{(i) raw cosine.}
+For the query I need \(\|q\|_2\), which is 1 dot (\(q^\top q\)) + 1 sqrt.
+
+For each of the \(N\) stored vectors I need:
+\begin{itemize}[leftmargin=1.4em]
+    \item \(q^\top v_i\) --- 1 dot
+    \item \(\|v_i\|_2\) --- 1 dot + 1 sqrt
+    \item then divide \(q^\top v_i\) by \(\|q\|_2 \|v_i\|_2\) --- 1 division
+\end{itemize}
+So the totals are
+\begin{center}
+\begin{tabular}{lrr}
+    \toprule
+    Operation & Count & Number \\
+    \midrule
+    Dot products & \(1 + 2N\) & \(2{,}000{,}001\) \\
+    Square roots & \(1 + N\) & \(1{,}000{,}001\) \\
+    Divisions    & \(N\)     & \(1{,}000{,}000\) \\
+    \bottomrule
+\end{tabular}
+\end{center}
+
+\paragraph{(ii) already normalized.}
+If everything (stored vectors and the query) was normalized to unit
+\(\ell_2\) before hitting the accelerator, then \(\cos\theta = q^\top v_i\).
+I just do \(N\) dot products. No sqrts, no divisions.
+\begin{center}
+\begin{tabular}{lrr}
+    \toprule
+    Operation & Count & Number \\
+    \midrule
+    Dot products & \(N\) & \(1{,}000{,}000\) \\
+    Square roots & \(0\) & \(0\) \\
+    Divisions    & \(0\) & \(0\) \\
+    \bottomrule
+\end{tabular}
+\end{center}
+
+\paragraph{(iii) cycles and speedup.}
+Raw:
+\[
+C_{\mathrm{raw}}
+= (2N+1)(1) + (N+1)(20) + N(30)
+= 2N + 1 + 20N + 20 + 30N
+= 52N + 21
+= 52{,}000{,}021.
+\]
+Pre-normalized:
+\[
+C_{\mathrm{pre}} = N \cdot 1 = 1{,}000{,}000.
+\]
+Speedup (total cycles, not scalar-only):
+\[
+\frac{C_{\mathrm{raw}}}{C_{\mathrm{pre}}}
+= \frac{52{,}000{,}021}{1{,}000{,}000}
+= 52.000021
+\approx 52\times.
+\]
+The work didn't disappear. We just moved it. Each stored vector gets
+normalized once when we insert it (self-dot + sqrt + rescale), and the query
+gets normalized once on the way in. After that the accelerator only does
+dots. So it's relocated to preprocess / ingest, not deleted.
+
+\paragraph{(iv) 1-lane array.}
+Now a dot product takes 768 cycles instead of 1.
+\[
+C_{\mathrm{raw}}
+= (2N+1)(768) + (N+1)(20) + N(30)
+= 1536N + 768 + 20N + 20 + 30N
+= 1586N + 788
+= 1{,}586{,}000{,}788.
+\]
+\[
+C_{\mathrm{pre}} = N \cdot 768 = 768{,}000{,}000.
+\]
+\[
+\text{speedup}
+= \frac{1{,}586{,}000{,}788}{768{,}000{,}000}
+\approx 2.065\times.
+\]
+This looks way worse (only about \(2\times\) vs \(52\times\)) because the
+dots themselves are now the expensive part. You're already spending 768
+cycles per inner product, so an extra 20--30 for a sqrt/div barely matters.
+The takeaway is that hiding scalar-unit latency is mainly worth it when the
+array is wide enough that a full dot product is already cheap.
+
+%----------------------------------------------------------------------
+\subsection*{(e)}
+
+Symmetric INT8 goes from \(-127\) to \(127\). After dequant, each value is
+\(q_i \cdot s\), so the biggest magnitude we can represent without clipping
+is \(127s\). To not clip \(x\) we need
+\(127s \ge \max_i |x_i| = \|x\|_\infty\), and the tightest choice is
+\[
+s = \frac{\|x\|_\infty}{127}.
+\]
+That's why we use \(\|\cdot\|_\infty\) and not \(\|\cdot\|_2\) or
+\(\|\cdot\|_1\). INT8 is basically a box around 0 in each coordinate.
+\(\ell_2\) is a ball and \(\ell_1\) is a diamond, so they don't match the
+representable set. If I used \(\|x\|_2 / 127\), since
+\(\|x\|_2 \ge \|x\|_\infty\) I wouldn't clip, but \(s\) would be larger than
+it needs to be and I'd waste codes. \(\ell_1\) is even bigger for dense
+vectors, so worse.
+
+Hardware-wise, \(\|x\|_\infty\) is just a tree of comparisons (max
+reduction). Latency is \(\lceil \log_2 n \rceil\) and it's deterministic ---
+no multiplies, no sqrt. \(\|x\|_2\) needs \(n\) squares, an add-reduction
+tree, and then a sqrt. Sqrt is long latency and more of a real FP unit, so
+it's slower and a lot less ``just a compare tree.''
+
+\(\ell_\infty\) is a bad scale when one entry is a huge outlier, which
+happens a lot in transformer activations. Then that one value sets \(s\),
+and the other \(n-1\) numbers are tiny compared to \(s\), so they all get
+mapped to like a few bins near 0. Most of the 256 INT8 codes never get used.
+
+Two fixes: (1)~don't let the true max set the scale --- clip the outlier or
+use a percentile; (2)~don't make the whole tensor share one scale --- do
+per-channel / per-token / group quantization so one crazy value only messes
+up its own group.
+
+\newpage
+%======================================================================
+\section{Problem 2: Spectra, Curvature, and the Step-Size Ceiling}
+%======================================================================
+
+\textit{(not started)}
+
+\newpage
+\section{Problem 3: PCA, SVD, and On-Chip Activations}
+\textit{(not started)}
+
+\newpage
+\section{Problem 4: Training LeNet-5}
+\textit{(not started)}
+
+\end{document}

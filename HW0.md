@@ -1,251 +1,219 @@
-# EE 511 Homework 1 — Problem 1
+# Problem 1: Inner Products, Norms, and Angular Similarity
 
-**Inner Products, Norms, and Angular Similarity** (25 pts)
+## (a)
 
-This file is the working write-up for Part A, Problem 1. Vectors are columns in \(\mathbb{R}^n\). \(\|\cdot\|_p\) is the \(\ell_p\) norm. One MAC is one multiply–accumulate.
-
-The whole problem is one story. An inner product \(x^\top y\) grows if you stretch either vector, so it is not a pure measure of angle. Cosine similarity removes the lengths. Cauchy–Schwarz is the inequality that makes that cosine a real number in \([-1,1]\). Once every vector is forced onto the unit sphere offline, cosine collapses to a bare dot product, which is what a MAC array wants. The last part asks which norm should set an INT8 scale: the representable set is a box, so the right radius is \(\|x\|_\infty\).
-
----
-
-## (a) Cauchy–Schwarz
-
-**Claim.** For all \(x,y\in\mathbb{R}^n\),
+I need to show that for all \(x, y \in \mathbb{R}^n\),
 
 \[
-\bigl|x^\top y\bigr| \;\le\; \|x\|_2\,\|y\|_2.
+|x^\top y| \le \|x\|_2 \|y\|_2.
 \]
 
-Equality holds if and only if \(x\) and \(y\) are linearly dependent: there exists \(\lambda\in\mathbb{R}\) such that \(x=\lambda y\) or \(y=\lambda x\). (This includes either vector being zero.)
+Equality holds iff \(x\) and \(y\) are linearly dependent, i.e. there is some \(\lambda \in \mathbb{R}\) with \(x = \lambda y\) (this also covers the case where one of them is 0).
 
-### Proof
+**Proof.**
 
-**Case \(y=0\).** Then \(x^\top y=0\) and \(\|y\|_2=0\), so both sides are \(0\). Equality holds, and \(y=0\cdot x\), so the two vectors are linearly dependent. The case \(x=0\) is identical.
+First if \(y = 0\): then \(x^\top y = 0\) and \(\|y\|_2 = 0\), so both sides are 0 and we have equality. Also \(y = 0 \cdot x\), so they are linearly dependent. Same thing if \(x = 0\).
 
-**Case \(y\neq 0\).** For every \(t\in\mathbb{R}\) the squared residual is nonnegative:
+Now assume \(y \neq 0\). Following the hint, look at
 
 \[
-g(t) \;=\; \|x-ty\|_2^2 \;\ge\; 0.
+g(t) = \|x - ty\|_2^2 \ge 0 \quad \text{for all } t \in \mathbb{R}.
 \]
 
-Expand the inner product:
+Expanding:
 
-\[
+\begin{align*}
 g(t)
-\;=\; (x-ty)^\top(x-ty)
-\;=\; \|y\|_2^2\, t^2 \;-\; 2(x^\top y)\, t \;+\; \|x\|_2^2.
-\]
+&= (x - ty)^\top (x - ty) \\
+&= x^\top x - t\, y^\top x - t\, x^\top y + t^2 y^\top y \\
+&= \|x\|_2^2 - 2t (x^\top y) + t^2 \|y\|_2^2.
+\end{align*}
 
-This is a quadratic \(at^2+bt+c\) with leading coefficient \(a=\|y\|_2^2>0\). A parabola that opens upward and never goes below the axis cannot have two distinct real roots, so its discriminant satisfies \(\Delta\le 0\):
-
-\[
-\Delta
-\;=\; 4(x^\top y)^2 \;-\; 4\|y\|_2^2\|x\|_2^2
-\;\le\; 0.
-\]
-
-Cancel \(4\) and take nonnegative square roots:
+So \(g(t)\) is a quadratic \(at^2 + bt + c\) with
 
 \[
-\bigl|x^\top y\bigr| \;\le\; \|x\|_2\,\|y\|_2.
+a = \|y\|_2^2 > 0, \qquad b = -2x^\top y, \qquad c = \|x\|_2^2.
 \]
 
-### Equality, both directions
-
-\(\Rightarrow\). Suppose equality holds. If \(y=0\) we are already done. If \(y\neq 0\), then \(\Delta=0\), so \(g\) has a double root \(t_\star\). Then \(g(t_\star)=0\), hence \(x-t_\star y=0\), hence \(x=t_\star y\).
-
-\(\Leftarrow\). Suppose \(x=\lambda y\). Then
+Since \(a > 0\) and \(g(t) \ge 0\) for every real \(t\), this parabola never crosses the axis. That means the discriminant has to be \(\le 0\):
 
 \[
-\bigl|x^\top y\bigr| \;=\; |\lambda|\,\|y\|_2^2,
-\qquad
-\|x\|_2\|y\|_2 \;=\; |\lambda|\,\|y\|_2^2.
+\Delta = b^2 - 4ac = 4(x^\top y)^2 - 4\|y\|_2^2 \|x\|_2^2 \le 0.
 \]
 
-The two sides match. If \(\lambda\ge 0\) the inner product is \(+\|x\|_2\|y\|_2\); if \(\lambda<0\) it is \(-\|x\|_2\|y\|_2\). The absolute value saturates in both geometries.
+Dividing by 4,
 
-Geometrically: \(g(t)\) is the squared length of \(x\) after subtracting its component along \(y\). That residual is zero only when \(x\) already lives on the line through \(y\). Cauchy–Schwarz is the statement that a projection cannot be longer than the vector itself.
+\[
+(x^\top y)^2 \le \|x\|_2^2 \|y\|_2^2
+\qquad \Rightarrow \qquad
+|x^\top y| \le \|x\|_2 \|y\|_2.
+\]
+
+**Equality (\(\Rightarrow\)).** Suppose \(|x^\top y| = \|x\|_2 \|y\|_2\). If \(y = 0\) we already have dependence. If \(y \neq 0\), then \(\Delta = 0\), so \(g\) has a repeated root \(t_*\). Then \(g(t_*) = 0\), so \(\|x - t_* y\|_2 = 0\), so \(x = t_* y\).
+
+**Equality (\(\Leftarrow\)).** Suppose \(x = \lambda y\). Then
+
+\[
+|x^\top y| = |\lambda| \|y\|_2^2, \qquad \|x\|_2 \|y\|_2 = |\lambda| \|y\|_2 \cdot \|y\|_2 = |\lambda| \|y\|_2^2.
+\]
+
+Same number, so equality holds. If \(\lambda \ge 0\) they point the same way and \(x^\top y = +\|x\|_2\|y\|_2\). If \(\lambda < 0\) they point opposite and we get the minus sign, but the absolute value still matches.
 
 ---
 
-## (b) Cosine similarity is well defined
+## (b)
 
-Let \(x,y\neq 0\). The denominator \(\|x\|_2\|y\|_2\) is then strictly positive, so we may divide the inequality of part (a) by it:
+From (a), for any \(x, y \neq 0\),
 
 \[
-\left|\frac{x^\top y}{\|x\|_2\|y\|_2}\right| \;\le\; 1
-\qquad\Rightarrow\qquad
-\cos\theta \;\in\; [-1,1].
+|x^\top y| \le \|x\|_2 \|y\|_2.
 \]
 
-Without Cauchy–Schwarz the same formula could return a number outside \([-1,1]\), which cannot be the cosine of an angle. That is what “well defined” means here.
+Divide both sides by \(\|x\|_2 \|y\|_2 > 0\):
 
-**Pair with \(\cos\theta=+1\).** Take \(x=(1,0,0)^\top\) and \(y=(2,0,0)^\top\) in \(\mathbb{R}^3\). Then \(x^\top y=2\) and \(\|x\|_2\|y\|_2=2\), so \(\cos\theta=+1\). The two vectors are parallel and point in the same direction (angle \(0\)).
+\[
+\left| \frac{x^\top y}{\|x\|_2 \|y\|_2} \right| \le 1
+\qquad \Rightarrow \qquad
+\cos\theta \in [-1, 1].
+\]
 
-**Pair with \(\cos\theta=-1\).** Take \(x=(1,0,0)^\top\) and \(y=(-3,0,0)^\top\). Then \(x^\top y=-3\) and \(\|x\|_2\|y\|_2=3\), so \(\cos\theta=-1\). The two vectors are parallel and point in opposite directions (angle \(\pi\)).
+So the cosine formula actually lands in the range of cosine, which is why it's well defined.
+
+For \(+1\) I can just take two vectors in the same direction, e.g.
+
+\[
+x = \begin{pmatrix} 1 \\ 0 \\ 0 \end{pmatrix}, \quad
+y = \begin{pmatrix} 2 \\ 0 \\ 0 \end{pmatrix}.
+\]
+
+Then \(x^\top y = 2\) and \(\|x\|_2\|y\|_2 = 1 \cdot 2 = 2\), so \(\cos\theta = 1\). Geometrically they are parallel and point the same way (angle is 0).
+
+For \(-1\),
+
+\[
+x = \begin{pmatrix} 1 \\ 0 \\ 0 \end{pmatrix}, \quad
+y = \begin{pmatrix} -3 \\ 0 \\ 0 \end{pmatrix}.
+\]
+
+Then \(x^\top y = -3\) and \(\|x\|_2\|y\|_2 = 3\), so \(\cos\theta = -1\). These are parallel but opposite (angle is \(\pi\)).
 
 ---
 
-## (c) Norm equivalence
+## (c)
 
-We prove, for every \(x\in\mathbb{R}^n\),
+Need \(\|x\|_2 \le \|x\|_1\) and \(\|x\|_1 \le \sqrt{n}\|x\|_2\) for all \(x \in \mathbb{R}^n\).
 
-\[
-\|x\|_2 \;\le\; \|x\|_1
-\qquad\text{and}\qquad
-\|x\|_1 \;\le\; \sqrt{n}\,\|x\|_2.
-\]
+**First inequality.** As in the hint, compare squares:
 
-### First inequality: \(\|x\|_2\le\|x\|_1\)
-
-Compare squares. Expanding the \(\ell_1\) square produces the \(\ell_2\) square plus a pile of nonnegative cross terms:
-
-\[
+\begin{align*}
 \|x\|_1^2
-\;=\; \Bigl(\sum_{i=1}^n |x_i|\Bigr)^2
-\;=\; \sum_{i=1}^n x_i^2 \;+\; \sum_{i\neq j}|x_i||x_j|
-\;\ge\; \sum_{i=1}^n x_i^2
-\;=\; \|x\|_2^2.
-\]
+&= \left( \sum_{i=1}^n |x_i| \right)^2 \\
+&= \sum_{i=1}^n |x_i|^2 + \sum_{i \neq j} |x_i||x_j| \\
+&= \|x\|_2^2 + \sum_{i \neq j} |x_i||x_j|.
+\end{align*}
 
-Both norms are nonnegative, so \(\|x\|_2\le\|x\|_1\).
+Each cross term is \(\ge 0\), so \(\|x\|_1^2 \ge \|x\|_2^2\). Taking square roots (both sides \(\ge 0\)) gives \(\|x\|_2 \le \|x\|_1\).
 
-**Equality.** Every cross term vanishes if and only if at most one coordinate is nonzero. An extremal vector is therefore **sparse**: any 1-sparse vector, e.g. \(x=e_1=(1,0,\ldots,0)^\top\). For this \(x\) both norms equal \(1\).
+Equality when all the cross terms are 0, which means at most one \(x_i\) is nonzero. So the vector that hits equality is sparse, like \(x = (1, 0, \ldots, 0)^\top\). For this one, \(\|x\|_2 = \|x\|_1 = 1\).
 
-### Second inequality: \(\|x\|_1\le\sqrt{n}\,\|x\|_2\)
-
-Apply part (a) to the absolute-value vector \(z=(|x_1|,\ldots,|x_n|)^\top\) and the all-ones vector \(\mathbf{1}=(1,\ldots,1)^\top\):
+**Second inequality.** Use (a) on \(z = (|x_1|, \ldots, |x_n|)^\top\) and the all-ones vector \(y = \mathbf{1}\):
 
 \[
-z^\top\mathbf{1} \;=\; \|x\|_1,
-\qquad
-\|z\|_2 \;=\; \|x\|_2,
-\qquad
-\|\mathbf{1}\|_2 \;=\; \sqrt{n}.
+z^\top \mathbf{1} = \sum_i |x_i| = \|x\|_1, \qquad \|z\|_2 = \|x\|_2, \qquad \|\mathbf{1}\|_2 = \sqrt{n}.
 \]
 
-Cauchy–Schwarz gives \(\|x\|_1\le\sqrt{n}\,\|x\|_2\).
+Cauchy–Schwarz:
 
-**Equality.** \(z\) and \(\mathbf{1}\) are linearly dependent if and only if all \(|x_i|\) are equal. An extremal vector is therefore **dense**: e.g. \(x=(1,1,\ldots,1)^\top\), or any equal-magnitude sign pattern. For the all-ones vector, \(\|x\|_1=n\) and \(\sqrt{n}\|x\|_2=n\).
+\[
+\|x\|_1 = |z^\top \mathbf{1}| \le \|z\|_2 \|\mathbf{1}\|_2 = \sqrt{n}\|x\|_2.
+\]
 
-The two bounds are saturated at opposite extremes: \(\ell_2\le\ell_1\) on sparse vectors, \(\ell_1\le\sqrt{n}\,\ell_2\) on dense equal-magnitude vectors. At embedding dimension \(d=768\) the factor \(\sqrt{n}\approx 27.7\), so the two norms can differ by more than an order of magnitude on a dense activation.
+Equality when \(z\) and \(\mathbf{1}\) are linearly dependent, i.e. all the \(|x_i|\) are equal. So this one is dense, e.g. \(x = (1, 1, \ldots, 1)^\top\). Check: \(\|x\|_1 = n\) and \(\sqrt{n}\|x\|_2 = \sqrt{n} \cdot \sqrt{n} = n\).
 
 ---
 
-## Why pre-normalization is legal
+## (d)
 
-If \(\|x\|_2=\|y\|_2=1\), then
+Setup: \(N = 10^6\) vectors, \(d = 768\). The array has 768 lanes so one full dot product is 1 cycle. sqrt takes 20 cycles, div takes 30, and the MAC array stalls during both. Query norm is computed once and cached. Also \(\|v\|_2^2 = v^\top v\), so getting a stored vector's norm costs one extra dot product before the sqrt.
+
+### (i) raw cosine
+
+For the query I need \(\|q\|_2\), which is 1 dot (\(q^\top q\)) + 1 sqrt.
+
+For each of the \(N\) stored vectors I need:
+
+- \(q^\top v_i\) — 1 dot
+- \(\|v_i\|_2\) — 1 dot + 1 sqrt
+- then divide \(q^\top v_i\) by \(\|q\|_2 \|v_i\|_2\) — 1 division
+
+So totals:
+
+- dot products: \(1 + 2N = 2{,}000{,}001\)
+- square roots: \(1 + N = 1{,}000{,}001\)
+- divisions: \(N = 1{,}000{,}000\)
+
+### (ii) already normalized
+
+If everything (stored vectors and the query) was normalized to unit \(\ell_2\) before hitting the accelerator, then \(\cos\theta = q^\top v_i\). I just do \(N\) dot products. No sqrts, no divisions.
+
+- dot products: \(N = 1{,}000{,}000\)
+- square roots: \(0\)
+- divisions: \(0\)
+
+### (iii) cycles and speedup
+
+Raw:
 
 \[
-\|x-y\|_2^2 \;=\; 2-2x^\top y,
+C_\text{raw} = (2N+1)(1) + (N+1)(20) + N(30) = 2N + 1 + 20N + 20 + 30N = 52N + 21 = 52{,}000{,}021
 \]
 
-so ranking by Euclidean distance, by cosine, and by inner product are the same ranking. A vector database may store unit embeddings and implement nearest-neighbor search as a pure MAC-array sweep. Part (d) prices the alternative.
+Pre-normalized:
+
+\[
+C_\text{pre} = N \cdot 1 = 1{,}000{,}000
+\]
+
+Speedup (total cycles, not scalar-only):
+
+\[
+\frac{C_\text{raw}}{C_\text{pre}} = \frac{52{,}000{,}021}{1{,}000{,}000} = 52.000021 \approx 52\times
+\]
+
+The work didn't disappear. We just moved it. Each stored vector gets normalized once when we insert it (self-dot + sqrt + rescale), and the query gets normalized once on the way in. After that the accelerator only does dots. So it's relocated to preprocess / ingest, not deleted.
+
+### (iv) 1-lane array
+
+Now a dot product takes 768 cycles instead of 1.
+
+\[
+C_\text{raw} = (2N+1)(768) + (N+1)(20) + N(30) = 1536N + 768 + 20N + 20 + 30N = 1586N + 788 = 1{,}586{,}000{,}788
+\]
+
+\[
+C_\text{pre} = N \cdot 768 = 768{,}000{,}000
+\]
+
+\[
+\text{speedup} = \frac{1{,}586{,}000{,}788}{768{,}000{,}000} \approx 2.065\times
+\]
+
+This looks way worse (only about \(2\times\) vs \(52\times\)) because the dots themselves are now the expensive part. You're already spending 768 cycles per inner product, so an extra 20–30 for a sqrt/div barely matters. The takeaway is that hiding scalar-unit latency is mainly worth it when the array is wide enough that a full dot product is already cheap.
 
 ---
 
-## (d) Why accelerators pre-normalize
+## (e)
 
-**Machine.** \(N=10^6\) stored embeddings, dimension \(d=768\), FP32. A 768-lane MAC array retires one full 768-element dot product per cycle. Shared scalar units are not pipelined: one square root costs 20 cycles, one division costs 30 cycles, and the MAC array stalls for the entire scalar latency. The query’s own norm is computed once and cached. The \(\ell_2\) norm of a stored vector is itself a self-dot product, then a square root.
-
-### (i) Raw cosine
-
-| Operation | Count | Reason |
-|---|---|---|
-| Dot products | \(2N+1=2{,}000{,}001\) | \(q^\top q\) once; then \(v_i^\top v_i\) and \(q^\top v_i\) for each stored vector |
-| Square roots | \(N+1=1{,}000{,}001\) | \(\|q\|_2\) once and \(\|v_i\|_2\) for each stored vector |
-| Divisions | \(N=1{,}000{,}000\) | one \(\dfrac{q^\top v_i}{\|q\|_2\|v_i\|_2}\) per stored vector |
-
-The product of the two norms is a multiply, not a divide, so it is not counted above.
-
-### (ii) Pre-normalized to unit \(\ell_2\)
-
-Every stored vector and the query are already unit length before they reach the accelerator. Cosine **is** the dot product. The scalar units are used zero times.
-
-| Operation | Count |
-|---|---|
-| Dot products | \(N=1{,}000{,}000\) |
-| Square roots | \(0\) |
-| Divisions | \(0\) |
-
-### (iii) Cycles and speedup on the 768-lane array
+Symmetric INT8 goes from \(-127\) to \(127\). After dequant, each value is \(q_i \cdot s\), so the biggest magnitude we can represent without clipping is \(127s\). To not clip \(x\) we need \(127s \ge \max_i |x_i| = \|x\|_\infty\), and the tightest choice is
 
 \[
-C_{\mathrm{raw}}
-\;=\; (2N+1)\cdot 1 \;+\; (N+1)\cdot 20 \;+\; N\cdot 30
-\;=\; 52N+21
-\;=\; 52{,}000{,}021
+s = \frac{\|x\|_\infty}{127}.
 \]
 
-\[
-C_{\mathrm{pre}}
-\;=\; N\cdot 1
-\;=\; 1{,}000{,}000
-\]
+That's why we use \(\|\cdot\|_\infty\) and not \(\|\cdot\|_2\) or \(\|\cdot\|_1\). INT8 is basically a box around 0 in each coordinate. \(\ell_2\) is a ball and \(\ell_1\) is a diamond, so they don't match the representable set. If I used \(\|x\|_2 / 127\), since \(\|x\|_2 \ge \|x\|_\infty\) I wouldn't clip, but \(s\) would be larger than it needs to be and I'd waste codes. \(\ell_1\) is even bigger for dense vectors, so worse.
 
-\[
-\mathrm{speedup}
-\;=\; \frac{C_{\mathrm{raw}}}{C_{\mathrm{pre}}}
-\;=\; \frac{52{,}000{,}021}{1{,}000{,}000}
-\;=\; 52.000021
-\;\approx\; 52\times
-\]
+Hardware-wise, \(\|x\|_\infty\) is just a tree of comparisons (max reduction). Latency is \(\lceil \log_2 n \rceil\) and it's deterministic — no multiplies, no sqrt. \(\|x\|_2\) needs \(n\) squares, an add-reduction tree, and then a sqrt. Sqrt is long latency and more of a real FP unit, so it's slower and a lot less "just a compare tree."
 
-This is a ratio of **total** cycles. A ratio of scalar-unit cycles alone is undefined in case (ii), because that case never touches the scalar unit.
+\(\ell_\infty\) is a bad scale when one entry is a huge outlier, which happens a lot in transformer activations. Then that one value sets \(s\), and the other \(n-1\) numbers are tiny compared to \(s\), so they all get mapped to like a few bins near 0. Most of the 256 INT8 codes never get used.
 
-**Where did the removed work go?** It was relocated, not eliminated. Each stored vector pays one self-dot, one square root, and a rescale **once at ingest**, when the unit vector is written into the database. The query is normalized once on the host before it is issued. That offline / one-time cost is amortized across every future query. The accelerator’s critical path keeps only the \(N\) inner products.
-
-### (iv) Same optimization, 1-lane array
-
-A dot product now costs \(768\) cycles.
-
-\[
-C_{\mathrm{raw}}
-\;=\; (2N+1)\cdot 768 \;+\; (N+1)\cdot 20 \;+\; N\cdot 30
-\;=\; 1586N+788
-\;=\; 1{,}586{,}000{,}788
-\]
-
-\[
-C_{\mathrm{pre}}
-\;=\; N\cdot 768
-\;=\; 768{,}000{,}000
-\]
-
-\[
-\mathrm{speedup}
-\;=\; \frac{1{,}586{,}000{,}788}{768{,}000{,}000}
-\;\approx\; 2.065\times
-\]
-
-On the wide array a full inner product is 1 cycle and a stalled sqrt/div is 20–30 cycles, so the scalar tax dominates (\(\approx 96\%\) of raw runtime). On a 1-lane machine the two extra dots already cost \(1536N\) cycles and the scalar work is only \(50N\) cycles (\(\approx 3\%\)). The same algebraic rewrite looks unimpressive because you are already paying hundreds of cycles inside the inner product. Scalar-unit latency is worth engineering around only when the vector unit has already made a full dot product cheap.
-
----
-
-## (e) Choosing a norm for the quantizer
-
-Symmetric INT8 quantization represents integers in \(\{-127,\ldots,127\}\). Dequantization is \(\hat x_i=q_i\cdot s\), so the representable set is the axis-aligned box \([-127s,127s]^n\). A tensor \(x\) fits in that box with no clipping if and only if \(\|x\|_\infty\le 127s\). The finest such scale is therefore
-
-\[
-s \;=\; \frac{\|x\|_\infty}{127}.
-\]
-
-\(\|x\|_2\) and \(\|x\|_1\) are the wrong shapes. They describe a Euclidean ball and an \(\ell_1\) diamond. INT8’s codebook is a cube. Using \(\|x\|_2/127\) would still avoid clipping (because \(\|x\|_2\ge\|x\|_\infty\)), but the step \(s\) would be coarser than necessary and codes would be wasted. \(\|x\|_1\) is even coarser on a dense tensor.
-
-**Hardware contrast, \(\ell_\infty\) vs \(\ell_2\).** Computing \(\|x\|_\infty\) is a max-reduction tree: only comparisons, depth \(\lceil\log_2 n\rceil\), fixed data-independent latency, no multiplier and no square root. Computing \(\|x\|_2\) needs \(n\) squares, an adder-reduction tree, and a square-root unit. The sqrt is a long-latency iterative datapath. Even when the iteration count is hard-wired, the latency is larger and the pipe is a real floating-point unit rather than a compare tree. A quantizer frontend wants the max.
-
-**When an \(\ell_\infty\) scale is a bad choice.** Transformer activations often contain a single huge outlier. The scale is then set by that one coordinate, and the remaining \(n-1\) values all collapse into a few INT8 bins around zero. Of the 256 available codes, only a handful are used by the mass of the tensor.
-
-**Practical fixes.**
-
-1. Change *which* value sets the scale: clip, or take a high percentile instead of the true max, so typical values get a finer grid.
-2. Change *how many* values share one scale: per-channel, per-token, or group quantization, so one outlier pollutes only its group.
-
----
-
-## Checkpoint
-
-- (a)–(c) are the proofs: quantifiers, the zero vector, both directions of equality, sparse vs dense extremals.
-- (d)–(e) are the engineering: \(52{,}000{,}021\) vs \(1{,}000{,}000\) cycles (\(52.000021\times\)); \(1{,}586{,}000{,}788\) vs \(768{,}000{,}000\) cycles (\(\approx 2.065\times\)); scale \(s=\|x\|_\infty/127\).
-
-Next up in this file: Problem 2 (spectra, curvature, step-size ceiling), when we start it.
+Two fixes: (1) don't let the true max set the scale — clip the outlier or use a percentile; (2) don't make the whole tensor share one scale — do per-channel / per-token / group quantization so one crazy value only messes up its own group.
