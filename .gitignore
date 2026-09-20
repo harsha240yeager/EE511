@@ -10,6 +10,10 @@ __pycache__/
 .venv/
 venv/
 
+# Problem 4 runtime artifacts
+hw1/data/
+hw1/checkpoints/
+
 # OS / editor
 .DS_Store
 Thumbs.db

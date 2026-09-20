@@ -716,8 +716,9 @@ so \(\kappa\) is closer to \(1\).
 \section*{Part B: Programming}
 \addcontentsline{toc}{section}{Part B: Programming}
 
-Seed \(511\), NumPy \(2.4.6\), local CPU (no GPU). Every number below comes
-from \texttt{problem3.py}.
+Seed \(511\), NumPy \(2.4.6\), PyTorch \(2.14.0+cpu\), local CPU, 32 cores.
+Every number below comes from the submitted code
+(\texttt{problem3.py}, \texttt{problem4.py}).
 
 \section{Problem 3: PCA, SVD, and On-Chip Activations}
 
@@ -935,6 +936,328 @@ dense activation never gets written out in full. Without that, the
 
 \newpage
 \section{Problem 4: Training LeNet-5}
-\textit{(not started)}
+
+I built LeNet-5 from primitive layers (no model zoo). MNIST is padded by 2
+pixels on each side \emph{before} normalization, then normalized with
+mean \(0.1307\) and std \(0.3081\). A random \(90/10\) split of the 60k
+training images at seed \(511\) is the validation set. Optimizer is SGD
++ momentum \(0.9\), \(\eta=0.01\), batch \(64\), 15 epochs. Device is
+local CPU, 32 cores, PyTorch \(2.14.0+cpu\). Code is
+\texttt{problem4.py}.
+
+I checked one padded tensor: the border value matches the background
+(both become \((0-0.1307)/0.3081\approx -0.424\) after normalize), so
+there is no mid-gray frame.
+
+%----------------------------------------------------------------------
+\subsection*{(a) Implementation and static analysis}
+
+Output size \(H_{\mathrm{out}}=\lfloor(H_{\mathrm{in}}+2P-K)/S\rfloor+1\).
+Conv: \(\#\mathrm{params}=C_{\mathrm{out}}(C_{\mathrm{in}}K^2+1)\),
+\(\#\mathrm{MACs}=H_{\mathrm{out}}W_{\mathrm{out}}C_{\mathrm{out}}C_{\mathrm{in}}K^2\).
+FC: \(\#\mathrm{params}=C_{\mathrm{out}}(C_{\mathrm{in}}+1)\),
+\(\#\mathrm{MACs}=C_{\mathrm{out}}C_{\mathrm{in}}\).
+Pooling is 0 params and 0 MACs; its activation traffic still counts in
+bytes moved. Bytes moved = FP32 weights + input activations + output
+activations (no reuse). Intensity \(=2\times\#\mathrm{MACs}/\)bytes.
+
+\begin{center}
+\footnotesize
+\begin{tabular}{lccccc}
+    \toprule
+    Layer & Output & \#Params & \#MACs & Bytes moved & Intensity \\
+    \midrule
+    C1  & \(6\times28\times28\)   & \(156\)    & \(117{,}600\) & \(23{,}536\)  & \(9.99\) \\
+    S2  & \(6\times14\times14\)   & \(0\)      & \(0\)         & \(23{,}520\)  & \(0\) \\
+    C3  & \(16\times10\times10\)  & \(2{,}416\)& \(240{,}000\) & \(20{,}768\)  & \(23.11\) \\
+    S4  & \(16\times5\times5\)    & \(0\)      & \(0\)         & \(8{,}000\)   & \(0\) \\
+    C5  & \(120\times1\times1\)   & \(48{,}120\)& \(48{,}000\) & \(194{,}560\) & \(0.49\) \\
+    F6  & \(84\)                  & \(10{,}164\)& \(10{,}080\) & \(41{,}472\)  & \(0.49\) \\
+    Out & \(10\)                  & \(850\)    & \(840\)       & \(3{,}776\)   & \(0.44\) \\
+    \midrule
+    Total & n/a & \(61{,}706\) & \(416{,}520\) & \(315{,}632\) & \(2.64\) \\
+    \bottomrule
+\end{tabular}
+\end{center}
+
+Hand calc for C1: \(H_{\mathrm{out}}=(32-5)+1=28\),
+params \(=6(25+1)=156\), MACs \(=28\cdot28\cdot6\cdot1\cdot25=117600\),
+bytes \(=156\cdot4 + 32\cdot32\cdot4 + 6\cdot28\cdot28\cdot4=23536\),
+intensity \(=235200/23536=9.99\).
+C3: params \(=16(150+1)=2416\), MACs \(=10\cdot10\cdot16\cdot6\cdot25=240000\).
+C5: params \(=120(400+1)=48120\), MACs \(=120\cdot16\cdot25=48000\).
+F6: \(84\cdot121=10164\), Out: \(10\cdot85=850\).
+
+PyTorch \texttt{numel()} on the same model: C1 \(156\), C3 \(2416\),
+C5 \(48120\), F6 \(10164\), Out \(850\), total \(61706\). Matches the
+hand table exactly. No mismatch to reconcile.
+
+%----------------------------------------------------------------------
+\subsection*{(b) Training}
+
+\begin{center}
+\footnotesize
+\begin{tabular}{crrrrr}
+    \toprule
+    ep & train loss & train acc & val loss & val acc & time (s) \\
+    \midrule
+    1  & 0.434 & 0.8805 & 0.154 & 0.9538 & 27.6 \\
+    2  & 0.104 & 0.9690 & 0.086 & 0.9730 & 13.7 \\
+    3  & 0.067 & 0.9796 & 0.068 & 0.9778 & 14.0 \\
+    4  & 0.052 & 0.9845 & 0.058 & 0.9825 & 14.4 \\
+    5  & 0.043 & 0.9875 & 0.054 & 0.9835 & 14.8 \\
+    6  & 0.036 & 0.9892 & 0.053 & 0.9815 & 15.2 \\
+    7  & 0.031 & 0.9908 & 0.041 & 0.9870 & 14.9 \\
+    8  & 0.028 & 0.9912 & 0.049 & 0.9840 & 15.0 \\
+    9  & 0.024 & 0.9928 & 0.040 & 0.9877 & 14.8 \\
+    10 & 0.021 & 0.9934 & 0.045 & 0.9863 & 15.2 \\
+    11 & 0.019 & 0.9946 & 0.042 & 0.9872 & 15.4 \\
+    12 & 0.017 & 0.9947 & 0.038 & 0.9888 & 16.0 \\
+    13 & 0.016 & 0.9953 & 0.037 & 0.9870 & 34.0 \\
+    14 & 0.013 & 0.9966 & 0.040 & 0.9878 & 34.4 \\
+    15 & 0.013 & 0.9966 & 0.044 & 0.9860 & 33.7 \\
+    \bottomrule
+\end{tabular}
+\end{center}
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.48\textwidth]{lenet_baseline_loss.pdf}
+\hfill
+\includegraphics[width=0.48\textwidth]{lenet_baseline_acc.pdf}
+\caption{Baseline LeNet-5 train/val loss and accuracy vs.\ epoch.}
+\end{figure}
+
+I would early-stop at epoch 12. That is the best validation accuracy
+(\(0.9888\)). After that train accuracy keeps climbing and val accuracy
+wobbles down a bit, so we are starting to overfit.
+
+%----------------------------------------------------------------------
+\subsection*{(c) Test-set evaluation}
+
+Checkpoint from epoch 12. Test loss \(0.0287\), top-1 accuracy
+\(0.9906\).
+
+\begin{center}
+\footnotesize
+\begin{tabular}{crrr}
+    \toprule
+    class & precision & recall & F1 \\
+    \midrule
+    0 & 0.991 & 0.995 & 0.993 \\
+    1 & 0.996 & 0.995 & 0.996 \\
+    2 & 0.989 & 0.998 & 0.994 \\
+    3 & 0.986 & 0.995 & 0.991 \\
+    4 & 0.993 & 0.988 & 0.990 \\
+    5 & 0.994 & 0.988 & 0.991 \\
+    6 & 0.994 & 0.991 & 0.992 \\
+    7 & 0.986 & 0.988 & 0.987 \\
+    8 & 0.991 & 0.980 & 0.986 \\
+    9 & 0.985 & 0.987 & 0.986 \\
+    \bottomrule
+\end{tabular}
+\end{center}
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.72\textwidth]{cm_mnist.pdf}
+\caption{MNIST \(10\times10\) confusion matrix for the baseline checkpoint.}
+\end{figure}
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.92\textwidth]{misclassified_mnist.pdf}
+\caption{Eight misclassified MNIST test images with true / predicted labels.}
+\end{figure}
+
+The two most-confused pairs are \(4\leftrightarrow 9\) (\(10+5=15\)
+off-diagonal) and \(3\leftrightarrow 5\) (\(7+3=10\)). Those digits really
+do look alike: a closed 4 is a 9 without the tail, and 3 vs.\ 5 is mostly
+whether the top-left stroke connects. A 32-pixel grayscale net with no
+augmentation is going to mix those.
+
+%----------------------------------------------------------------------
+\subsection*{(d) Ablations}
+
+I ran four of the list (activation, pooling, learning rate, batch size),
+one factor at a time from the baseline. ``Noise'' is the standard
+deviation of the baseline test accuracy across seeds \(511,512,513\):
+mean \(0.9896\), \(\mathrm{sd}=0.00090\) (about \(0.09\) points). I treat
+gaps under \(\sim 0.3\) points as within noise.
+
+\begin{center}
+\footnotesize
+\begin{tabular}{lccc}
+    \toprule
+    config & test acc & best val acc & mean epoch (s) \\
+    \midrule
+    baseline (tanh, avg, \(0.01\), \(64\)) & \(0.9906\) & \(0.9888\) & \(19.5\) \\
+    ReLU & \(0.9903\) & \(0.9887\) & \(31.9\) \\
+    max-pool & \(0.9907\) & \(0.9882\) & \(24.7\) \\
+    lr \(0.1\) & \(0.9884\) & \(0.9863\) & \(16.6\) \\
+    lr \(0.001\) & \(0.9765\) & \(0.9715\) & \(16.7\) \\
+    batch \(16\) & \(0.9907\) & \(0.9905\) & \(25.7\) \\
+    batch \(256\) & \(0.9858\) & \(0.9825\) & \(15.0\) \\
+    \bottomrule
+\end{tabular}
+\end{center}
+
+ReLU vs.\ tanh is within seed noise; on this tiny net it does not matter.
+Avg-pool vs.\ max-pool is also within noise. lr \(0.1\) is a little
+noisier / slightly worse; lr \(0.001\) is clearly too small and is still
+climbing at epoch 15. Batch \(16\) has the best validation accuracy
+(more steps per epoch); batch \(256\) is faster but underfits a bit in
+15 epochs because there are fewer updates.
+
+%----------------------------------------------------------------------
+\subsection*{(e) Transfer to Fashion-MNIST}
+
+Best config by validation accuracy was batch \(16\) (same everything
+else). I retrained that on Fashion-MNIST with mean \(0.286\), std
+\(0.353\). For the record, MNIST used \(0.1307\) / \(0.3081\).
+
+Test accuracy \(0.8958\), test loss \(0.323\).
+
+\begin{center}
+\footnotesize
+\begin{tabular}{lrrr}
+    \toprule
+    class & precision & recall & F1 \\
+    \midrule
+    T-shirt/top & 0.843 & 0.857 & 0.850 \\
+    Trouser     & 0.991 & 0.963 & 0.977 \\
+    Pullover    & 0.827 & 0.852 & 0.839 \\
+    Dress       & 0.846 & 0.943 & 0.892 \\
+    Coat        & 0.858 & 0.801 & 0.828 \\
+    Sandal      & 0.976 & 0.967 & 0.971 \\
+    Shirt       & 0.761 & 0.691 & 0.724 \\
+    Sneaker     & 0.919 & 0.977 & 0.947 \\
+    Bag         & 0.959 & 0.979 & 0.969 \\
+    Ankle boot  & 0.978 & 0.928 & 0.952 \\
+    \bottomrule
+\end{tabular}
+\end{center}
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.78\textwidth]{cm_fashion.pdf}
+\caption{Fashion-MNIST confusion matrix (best MNIST config, batch \(16\)).}
+\end{figure}
+
+The MNIST \(\to\) Fashion gap is about \(9.5\) points (\(0.9906\) vs.\
+\(0.8958\)). Both: the task is harder, and the net is a bit
+under-capacity. Evidence from my runs: on MNIST, train vs.\ val at the
+chosen epoch is \(0.995\) vs.\ \(0.989\) (half a point). On Fashion it is
+\(0.939\) vs.\ \(0.905\) (about \(3.4\) points), so we already overfit
+more. Per-class, Shirt is a mess (F1 \(0.72\)) and it bleeds into
+T-shirt, Pullover, and Coat --- those garments actually look alike,
+unlike digits.
+
+%----------------------------------------------------------------------
+\subsection*{(f) Where the compute is, and where the parameters are}
+
+I am answering (f) from the (a) table, before the training discussion.
+
+\paragraph{(i)}
+MACs are dominated by C3 (\(240{,}000\)) then C1 (\(117{,}600\)).
+Parameters are dominated by C5 (\(48{,}120\)) then F6 (\(10{,}164\)).
+Early convs slide a tiny filter over a big map, so you get a lot of MACs
+from few weights. C5 is a \(5\times5\) conv that exactly covers its
+input, i.e.\ a dense \(400\to120\) multiply, so the weight matrix is
+large and each weight is used once. Same story for F6/Out.
+
+\paragraph{(ii)}
+Machine balance \(I_{\mathrm{balance}}=40\) FLOPs/byte. Every layer is
+under that (max is C3 at \(23.1\)), so they are all memory-bound,
+including the pools at intensity \(0\). That is not an arithmetic bug.
+The no-reuse model charges the full weight tensor on every layer even
+though a real accelerator would keep those weights in SRAM and amortize
+them. With weights treated as streaming traffic, intensity stays small.
+
+\paragraph{(iii)}
+At batch \(B\), weights are paid once and activations scale with \(B\):
+\[
+I(B)=\frac{2B\cdot\mathrm{MACs}_1}{W + B(A_{\mathrm{in}}+A_{\mathrm{out}})}.
+\]
+As \(B\to\infty\), \(I\to 2\,\mathrm{MACs}_1/(A_{\mathrm{in}}+A_{\mathrm{out}})\).
+
+C1: that ceiling is \(235200/22912\approx 10.27<40\). The coefficient of
+\(B\) in \(2M-40A\) is negative, so \emph{no} batch size pushes C1 past
+\(40\).
+
+C3: the ceiling is \(480000/11104\approx 43.23>40\). Solving
+\(I(B)>40\) gives \(B>10.79\), so the smallest integer batch is
+\(B=11\).
+
+Batching is how you amortize the weight traffic. Even then C1 never
+becomes compute-bound under this traffic model, which is why people also
+care about on-chip reuse / weight-stationary dataflow, not just \(B\).
+
+\paragraph{(iv)}
+Model size (parameters only): FP32 is
+\(61706\times4/10^6=0.247\,\mathrm{MB}\). INT8 is
+\(61706\times1/10^6=0.062\,\mathrm{MB}\).
+Quantization helps the parameter-heavy layers most (C5, then F6) because
+that is where the bytes are. Weight-stationary dataflow helps the
+high-reuse convs: C1 has \(117600/156\approx 754\) MACs per weight, C3
+has \(\approx 99\). C5 is about \(1\) MAC/weight, so stationary weights
+do almost nothing there.
+
+%----------------------------------------------------------------------
+\subsection*{(g) Post-hoc low-rank compression}
+
+No retraining. I reshaped C5 to \(120\times400\) and F6 to \(84\times120\),
+took truncated SVD, and put the rank-\(r\) factors back. \(r\) is clipped
+per layer (\(r\le 84\) on F6).
+
+\begin{center}
+\begin{tabular}{crr}
+    \toprule
+    \(r\) & test acc & factored params (\(U_r\Sigma_r\), \(V_r^\top\)) \\
+    \midrule
+    1   & \(0.1932\) & \(724\) \\
+    2   & \(0.3604\) & \(1{,}448\) \\
+    4   & \(0.7409\) & \(2{,}896\) \\
+    8   & \(0.9775\) & \(5{,}792\) \\
+    16  & \(0.9882\) & \(11{,}584\) \\
+    32  & \(0.9899\) & \(23{,}168\) \\
+    64  & \(0.9906\) & \(46{,}336\) \\
+    120 & \(0.9906\) & \(79{,}536\) \\
+    \bottomrule
+\end{tabular}
+\end{center}
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.82\textwidth]{svd_acc_vs_rank.pdf}
+\caption{Test accuracy vs.\ rank after substituting truncated SVD into C5
+and F6. Dashed line is the uncompressed baseline. Right axis is the
+factored parameter count.}
+\end{figure}
+
+Smallest \(r\) within \(1\) absolute point of the \(0.9906\) baseline is
+\(r=16\) (acc \(0.9882\)). \(r=8\) is \(0.9775\), which is more than a
+point down. Those two layers had \(120\cdot400+84\cdot120=58080\)
+weights; the factored form at \(r=16\) has \(11584\), so about an
+\(80\%\) cut on just those two matrices.
+
+Eckart--Young--Mirsky says this truncation is optimal in Frobenius norm.
+LoRA writes \(y=W x + BA x\) with a frozen \(W\) and a trained low-rank
+residual \(BA\). What I did is the same factorization idea
+(\(U_r\Sigma_r\) plays the role of \(B\), \(V_r^\top\) of \(A\)), but I
+\emph{replaced} the trained \(W\) instead of adding a residual, and I did
+not train the factors.
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.82\textwidth]{svd_spectra.pdf}
+\caption{Singular-value spectra of C5 and F6 on a log axis.}
+\end{figure}
+
+The accuracy cliff is between \(r=4\) and \(r=8\), then it is basically
+flat after \(16\). The spectra decay smoothly --- there is no giant gap
+at \(8\) --- so the cliff is a bit earlier than a visual knee. That still
+says the trained weight matrices are redundant: you can throw away most
+of the tail and the classifier barely notices.
 
 \end{document}
