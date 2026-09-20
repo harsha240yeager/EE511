@@ -11,7 +11,7 @@
 \newcommand{\vct}[1]{\mathbf{#1}}
 \newcommand{\mat}[1]{\mathbf{#1}}
 
-\graphicspath{{figures/}}
+\graphicspath{{figures/}{hw1/figures/}}
 \hypersetup{colorlinks=true,linkcolor=black,urlcolor=blue}
 
 \title{EE 511 Homework 1\\[0.4em]
@@ -713,8 +713,225 @@ diagonal adaptive preconditioners (Adam). Both try to reshape the curvature
 so \(\kappa\) is closer to \(1\).
 
 \newpage
+\section*{Part B: Programming}
+\addcontentsline{toc}{section}{Part B: Programming}
+
+Seed \(511\), NumPy \(2.4.6\), local CPU (no GPU). Every number below comes
+from \texttt{problem3.py}.
+
 \section{Problem 3: PCA, SVD, and On-Chip Activations}
-\textit{(not started)}
+
+I generated the planted-rank matrix
+\(\mat{X}=\mat{Z}\mat{D}\mat{W}^\top+\mat{E}\) with
+\(M=500\), \(N=64\), \(r=4\), \(\mat{D}=\mathrm{diag}(10,8,6,4)\),
+\(\mat{W}\) from QR of a Gaussian, and \(E_{ij}\sim\mathcal{N}(0,0.5^2)\).
+Then I added a nonzero per-feature offset so the data are not already
+centered. Code is in \texttt{problem3.py}.
+
+%----------------------------------------------------------------------
+\subsection*{(a) PCA from scratch}
+
+Mean-center, form \(\mat{C}=\frac1M \mat{X}_c^\top\mat{X}_c\), then
+eigendecompose with \texttt{numpy.linalg.eigh} and sort descending. Top 6
+eigenvalues:
+
+\begin{center}
+\begin{tabular}{cr}
+    \toprule
+    \(i\) & \(\lambda_i\) \\
+    \midrule
+    1 & \(102.703\) \\
+    2 & \(63.424\) \\
+    3 & \(35.384\) \\
+    4 & \(16.790\) \\
+    5 & \(0.428\) \\
+    6 & \(0.415\) \\
+    \bottomrule
+\end{tabular}
+\end{center}
+
+The drop after \(\lambda_4\) is obvious. Those first four are in the same
+ballpark as \(10^2,8^2,6^2,4^2\), which is what the planted spectrum should
+look like.
+
+%----------------------------------------------------------------------
+\subsection*{(b) The equivalence}
+
+SVD of the same centered matrix: \(\mat{X}_c=\mat{U}\mat{\Sigma}\mat{V}^\top\).
+\[
+\max_i \bigl|\lambda_i - \sigma_i^2/M\bigr| = 3.55\times 10^{-14}.
+\]
+After flipping signs so each eigenvector lines up with the matching right
+singular vector,
+\[
+\max_i \|\vct{q}_i - \vct{v}_i\|_2 = 1.03\times 10^{-12}.
+\]
+They agree. The sign is not determined because if
+\(\mat{C}\vct{q}=\lambda\vct{q}\) then also
+\(\mat{C}(-\vct{q})=\lambda(-\vct{q})\). Same for SVD: flipping the sign of
+a column of \(\mat{U}\) and the matching column of \(\mat{V}\) leaves the
+product unchanged.
+
+%----------------------------------------------------------------------
+\subsection*{(c) Spectrum and truncation}
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.82\textwidth]{scree.pdf}
+\caption{Scree plot of \(\mat{C}\) (log \(y\)-axis). The dashed line sits
+in the gap between the planted rank-\(4\) spectrum and the noise floor.}
+\end{figure}
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.82\textwidth]{cumulative_variance.pdf}
+\caption{Cumulative explained-variance ratio. Horizontal lines are the
+\(90\%\), \(95\%\), and \(99\%\) thresholds.}
+\end{figure}
+
+\paragraph{(i)}
+Smallest \(k\) that retains at least that fraction of total variance:
+\begin{center}
+\begin{tabular}{cc}
+    \toprule
+    threshold & smallest \(k\) \\
+    \midrule
+    \(\ge 90\%\) & \(4\) \\
+    \(\ge 95\%\) & \(13\) \\
+    \(\ge 99\%\) & \(49\) \\
+    \bottomrule
+\end{tabular}
+\end{center}
+They disagree by a lot.
+
+\paragraph{(ii)}
+The scree plot has a clear order-of-magnitude cliff after index \(4\):
+\[
+\lambda_4 = 16.790, \qquad \lambda_5 = 0.428,
+\qquad \lambda_4/\lambda_5 \approx 39.2.
+\]
+
+\paragraph{(iii)}
+Only the \(90\%\) cutoff recovers \(r=4\). At \(k=4\) I already have
+\(93.7\%\) of the variance, so \(90\%\) stops there. Everything after the
+gap is noise, but that noise still adds up: \(64-4=60\) tiny eigenvalues
+can be \(\sim 6\%\) of the trace, so \(95\%\) keeps grabbing noise
+components until \(k=13\), and \(99\%\) keeps going to \(k=49\). Those two
+are not selecting signal. They are just vacuuming the noise floor until
+the leftover energy is small enough.
+
+I would trust the spectral gap to size a compression scheme, not a fixed
+variance threshold. The gap is telling you where the planted (or actual)
+rank is. A \(95\%\) or \(99\%\) rule will happily spend SRAM on noise.
+
+\paragraph{(iv)}
+Prediction before rerunning: drop the noise std from \(0.5\) to \(0.05\)
+and the noise variance falls by \(100\times\). The noise-floor trace is
+then tiny next to \(10^2+8^2+6^2+4^2=216\). The first three planted
+components are already about \(200/216\approx 93\%\), so I expected
+\(90\%\) to move to \(k=3\), and both \(95\%\) and \(99\%\) to snap to
+\(k=4\).
+
+Rerun (same seed, \(\sigma=0.05\)): \(k_{90}=3\), \(k_{95}=4\),
+\(k_{99}=4\), and \(\lambda_4/\lambda_5\approx 3838\). The prediction held.
+The gap got huge, and a fixed \(90\%\) cutoff now undershoots the planted
+rank instead of matching it. Another reason not to size \(k\) from a
+variance percentage.
+
+%----------------------------------------------------------------------
+\subsection*{(d) Projection}
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.82\textwidth]{pca_scatter.pdf}
+\caption{Centered activations projected onto PC1 and PC2, colored by the
+sign of the first column of the planted latent matrix \(\mat{Z}\).}
+\end{figure}
+
+PCA rotated the coordinates onto the directions of highest variance. PC1
+lines up with the strongest planted factor (the \(D_{11}=10\) column of
+\(\mat{Z}\)), so coloring by \(\mathrm{sign}(Z_{\cdot 1})\) splits the
+cloud left/right. PC2 picks up the next factor, which is why the cloud is
+spread on both axes and not just a 1-D line. If I had left the data
+uncentered, the per-feature offset would have been a huge DC component
+and PC1 would have pointed at that mean, not at the latent. The two
+colors would sit on top of each other along a mean-dominated axis and the
+plot would not show the planted structure.
+
+%----------------------------------------------------------------------
+\subsection*{(e) Reconstruction vs.\ the theoretical bound}
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.82\textwidth]{reconstruction_error.pdf}
+\caption{Relative Frobenius reconstruction error versus \(k\), with the
+Eckart--Young--Mirsky curve overlaid. The two series sit on top of each
+other.}
+\end{figure}
+
+The Eckart--Young--Mirsky theorem says the truncated SVD is the optimal
+rank-\(k\) approximation in Frobenius norm, and
+\[
+\|\mat{X}_c-\hat{\mat{X}}_k\|_F
+= \sqrt{\sum_{i>k}\sigma_i^2},
+\]
+so the two curves we were asked to plot have to coincide. Empirically the
+maximum absolute gap is \(1.30\times 10^{-15}\) (just floating-point
+noise; at \(k=64\) the leftover singular values are empty).
+
+%----------------------------------------------------------------------
+\subsection*{(f) The hardware payoff}
+
+\paragraph{(i)}
+Dense \(\mat{X}_c\) in FP32:
+\[
+M\cdot N\cdot 4\ \mathrm{B}
+= 500\cdot 64\cdot 4
+= 128000\ \mathrm{B}
+= 125\ \mathrm{KB}.
+\]
+
+\paragraph{(ii)--(iii)}
+Compressed form \(\{\mat{X}_c\mat{V}_k,\ \mat{V}_k\}\) costs
+\((Mk+Nk)\cdot 4\) bytes. Compression ratio is
+\(MN\big/\bigl(k(M+N)\bigr)\). Break-even when that ratio drops to \(1\):
+\[
+k(M+N) < MN \qquad\Rightarrow\qquad k < \frac{MN}{M+N} = \frac{32000}{564}
+\approx 56.74.
+\]
+So the compressed form stops being a win once \(k\ge 57\). On the requested
+grid that is \(k=64\) (ratio \(0.887\), \(141\ \mathrm{KB} > 125\ \mathrm{KB}\)).
+At \(k=32\) it is still a \(1.77\times\) save.
+
+\begin{center}
+\begin{tabular}{crrrr}
+    \toprule
+    \(k\) & var.\ retained & footprint (KB) & ratio & proj.\ (\(\mu\)s) \\
+    \midrule
+    1  & \(0.441\) & \(2.20\)  & \(56.74\) & \(4.5\) \\
+    2  & \(0.713\) & \(4.41\)  & \(28.37\) & \(11.2\) \\
+    4  & \(0.937\) & \(8.81\)  & \(14.18\) & \(11.4\) \\
+    8  & \(0.944\) & \(17.63\) & \(7.09\)  & \(16.5\) \\
+    16 & \(0.956\) & \(35.25\) & \(3.55\)  & \(26.1\) \\
+    32 & \(0.975\) & \(70.50\) & \(1.77\)  & \(49.2\) \\
+    64 & \(1.000\) & \(141.00\)& \(0.89\)  & \(63.5\) \\
+    \bottomrule
+\end{tabular}
+\end{center}
+
+\paragraph{(iv)}
+I timed only the projection \(\mat{X}_c\mat{V}_k\) on this CPU. For the
+useful rank \(k=4\) it is about \(11\,\mu\mathrm{s}\) on a \(500\times 64\)
+matrix, which is nothing. The point from lecture is still the one that
+matters: SVD-on-weights is free at inference because you do it once
+offline. PCA-on-activations is in the live path --- a new \(\mat{X}\)
+shows up every layer / every batch, you have to center it, and you have
+to multiply by \(\mat{V}_k\). To make that viable on-chip you need a
+small MAC array that can do an \(M\times N\times k\) GEMM without going
+back to DRAM, plus SRAM that already holds \(\mat{V}_k\), and you
+probably want it fused with the layer that produced \(\mat{X}\) so the
+dense activation never gets written out in full. Without that, the
+``compression'' just moves the bandwidth problem into a runtime matmul.
 
 \newpage
 \section{Problem 4: Training LeNet-5}
