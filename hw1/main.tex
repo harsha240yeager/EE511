@@ -346,7 +346,371 @@ outlier only pollutes its own group.
 
 \newpage
 \section{Problem 2: Spectra, Curvature, and the Step-Size Ceiling}
-\textit{(not started)}
+
+The matrix is
+\[
+\mat{A}
+=
+\begin{pmatrix}
+5 & 2 \\
+2 & 2
+\end{pmatrix}.
+\]
+It is symmetric, so \(\mat{A}^\top = \mat{A}\).
+
+%----------------------------------------------------------------------
+\subsection*{(a) Spectrum}
+
+Trace and determinant:
+\[
+\mathrm{tr}(\mat{A}) = 5+2 = 7,
+\qquad
+\det(\mat{A}) = 5\cdot 2 - 2\cdot 2 = 6.
+\]
+The characteristic polynomial in the form they asked for is
+\[
+\det(\mat{A} - \lambda \mat{I})
+= \lambda^2 - \mathrm{tr}(\mat{A})\,\lambda + \det(\mat{A})
+= \lambda^2 - 7\lambda + 6
+= 0.
+\]
+Factoring, \((\lambda-6)(\lambda-1)=0\), so the eigenvalues are
+\[
+\lambda_{\max} = 6, \qquad \lambda_{\min} = 1.
+\]
+
+For \(\lambda=6\),
+\[
+(\mat{A}-6\mat{I})\vct{v}
+=
+\begin{pmatrix}
+-1 & 2 \\
+2 & -4
+\end{pmatrix}
+\vct{v}
+= \vct{0}
+\qquad\Rightarrow\qquad
+v_1 = 2v_2.
+\]
+A unit-norm eigenvector is
+\[
+\vct{q}_1
+= \frac{1}{\sqrt{5}}
+\begin{pmatrix} 2 \\ 1 \end{pmatrix}.
+\]
+
+For \(\lambda=1\),
+\[
+(\mat{A}-\mat{I})\vct{v}
+=
+\begin{pmatrix}
+4 & 2 \\
+2 & 1
+\end{pmatrix}
+\vct{v}
+= \vct{0}
+\qquad\Rightarrow\qquad
+v_2 = -2v_1.
+\]
+A unit-norm eigenvector is
+\[
+\vct{q}_2
+= \frac{1}{\sqrt{5}}
+\begin{pmatrix} 1 \\ -2 \end{pmatrix}.
+\]
+
+Orthogonality check:
+\[
+\vct{q}_1^\top \vct{q}_2
+= \frac{1}{5}\bigl(2\cdot 1 + 1\cdot(-2)\bigr)
+= 0.
+\]
+The spectral theorem for real symmetric matrices already guaranteed this
+(real symmetric \(\Rightarrow\) real eigenvalues and orthogonal eigenvectors)
+before I multiplied anything.
+
+%----------------------------------------------------------------------
+\subsection*{(b) Decomposition and its hardware cost}
+
+Put the unit eigenvectors as columns of \(\mat{Q}\) and the eigenvalues on
+the diagonal of \(\mat{\Lambda}\):
+\[
+\mat{Q}
+=
+\frac{1}{\sqrt{5}}
+\begin{pmatrix}
+2 & 1 \\
+1 & -2
+\end{pmatrix},
+\qquad
+\mat{\Lambda}
+=
+\begin{pmatrix}
+6 & 0 \\
+0 & 1
+\end{pmatrix}.
+\]
+Then \(\mat{A} = \mat{Q}\mat{\Lambda}\mat{Q}^\top\). Checking the product:
+\[
+\mat{\Lambda}\mat{Q}^\top
+=
+\frac{1}{\sqrt{5}}
+\begin{pmatrix}
+12 & 6 \\
+1 & -2
+\end{pmatrix},
+\]
+\[
+\mat{Q}(\mat{\Lambda}\mat{Q}^\top)
+=
+\frac{1}{5}
+\begin{pmatrix}
+24+1 & 12-2 \\
+12-2 & 6+4
+\end{pmatrix}
+=
+\begin{pmatrix}
+5 & 2 \\
+2 & 2
+\end{pmatrix}
+= \mat{A}.
+\]
+
+\(\mat{Q}\) is orthogonal (\(\mat{Q}^\top\mat{Q}=\mat{I}_2\)), so
+\(\mat{Q}^{-1}=\mat{Q}^\top\). A compiler can just use the transpose instead
+of actually inverting \(\mat{Q}\). That removes a divider / matrix-inversion
+unit from the datapath (the high-latency iterative division that would show
+up in Gaussian elimination or a direct inverse). Transpose is basically a
+stride/address swap, not an ALU.
+
+If \(\mat{A}\) were non-symmetric we would not get an orthogonal eigenbasis
+in general. The factorization would look like
+\(\mat{A}=\mat{V}\mat{\Lambda}\mat{V}^{-1}\) (if it even diagonalizes over
+\(\mathbb{R}\)), and we would have to compute a real inverse
+\(\mat{V}^{-1}\). The divider / elimination unit comes back, eigenvectors
+need not be orthogonal, and eigenvalues can be complex.
+
+%----------------------------------------------------------------------
+\subsection*{(c) Definiteness}
+
+\(\mat{A}\) is positive definite. Two independent arguments:
+
+\paragraph{Spectral.}
+Both eigenvalues are strictly positive (\(6>0\) and \(1>0\)). For a
+symmetric matrix that is equivalent to \(\vct{x}^\top\mat{A}\vct{x}>0\) for
+all \(\vct{x}\neq\vct{0}\).
+
+\paragraph{Sylvester (no eigenvalues).}
+The leading principal minors are
+\[
+\Delta_1 = 5 > 0,
+\qquad
+\Delta_2 = \det(\mat{A}) = 6 > 0.
+\]
+A symmetric matrix is positive definite iff every leading principal minor is
+strictly positive, so \(\mat{A}\succ 0\).
+
+%----------------------------------------------------------------------
+\subsection*{(d) Gradient descent on a quadratic}
+
+\[
+L(\vct{w})
+= \tfrac12 \vct{w}^\top \mat{A}\vct{w} - \vct{b}^\top\vct{w},
+\qquad
+\vct{b}
+=
+\begin{pmatrix} 1 \\ -1 \end{pmatrix},
+\qquad
+\vct{w}\in\mathbb{R}^2.
+\]
+
+\paragraph{(i) Gradient, Hessian, minimizer.}
+Since \(\mat{A}\) is symmetric,
+\[
+\nabla L(\vct{w}) = \mat{A}\vct{w} - \vct{b},
+\qquad
+\nabla^2 L(\vct{w}) = \mat{A}.
+\]
+The critical point solves \(\mat{A}\vct{w}^\star = \vct{b}\):
+\begin{align*}
+5w_1 + 2w_2 &= 1, \\
+2w_1 + 2w_2 &= -1.
+\end{align*}
+From the second equation, \(w_1+w_2=-1/2\), so \(w_2=-1/2-w_1\). Plug in:
+\[
+5w_1 + 2\bigl(-\tfrac12-w_1\bigr)=1
+\qquad\Rightarrow\qquad
+3w_1=2
+\qquad\Rightarrow\qquad
+w_1=\tfrac23,
+\qquad
+w_2=-\tfrac12-\tfrac23=-\tfrac76.
+\]
+Because \(\mat{A}\) is PD this critical point is the unique minimizer:
+\[
+\vct{w}^\star
+=
+\begin{pmatrix} 2/3 \\ -7/6 \end{pmatrix}.
+\]
+
+\paragraph{(ii) Step-size ceiling.}
+Gradient descent is \(\vct{w}_{k+1}=\vct{w}_k-\eta\nabla L(\vct{w}_k)\).
+Let \(\vct{e}_k=\vct{w}_k-\vct{w}^\star\). Using
+\(\mat{A}\vct{w}^\star=\vct{b}\),
+\begin{align*}
+\vct{e}_{k+1}
+&= \vct{w}_k - \eta(\mat{A}\vct{w}_k-\vct{b}) - \vct{w}^\star \\
+&= (\mat{I}-\eta\mat{A})\vct{w}_k + \eta\mat{A}\vct{w}^\star - \vct{w}^\star \\
+&= (\mat{I}-\eta\mat{A})(\vct{e}_k+\vct{w}^\star)
+   + \eta\mat{A}\vct{w}^\star - \vct{w}^\star \\
+&= (\mat{I}-\eta\mat{A})\vct{e}_k.
+\end{align*}
+Write \(\vct{e}_k=\mat{Q}\tilde{\vct{e}}_k\) in the eigenbasis of
+\(\mat{A}\). Then
+\[
+\tilde{\vct{e}}_{k+1}
+= (\mat{I}-\eta\mat{\Lambda})\tilde{\vct{e}}_k,
+\]
+so along eigendirection \(i\),
+\[
+\tilde{e}_{k+1,i} = (1-\eta\lambda_i)\,\tilde{e}_{k,i}.
+\]
+This goes to \(0\) for every initialization iff \(|1-\eta\lambda_i|<1\) for
+both eigenvalues:
+\[
+-1 < 1-\eta\lambda_i < 1
+\qquad\Rightarrow\qquad
+0 < \eta\lambda_i < 2.
+\]
+Since both \(\lambda_i>0\), we need \(0<\eta<2/\lambda_i\) for each \(i\).
+The tight constraint is the smallest upper bound,
+\[
+0 < \eta < \frac{2}{\lambda_{\max}} = \frac{2}{6} = \frac13.
+\]
+So the step-size ceiling for our \(\mat{A}\) is \(1/3\).
+
+\paragraph{(iii) Condition number and optimal step.}
+\[
+\kappa(\mat{A}) = \frac{\lambda_{\max}}{\lambda_{\min}} = \frac{6}{1} = 6.
+\]
+From (ii), the per-step scale on mode \(i\) is \(1-\eta\lambda_i\), so the
+worst-case contraction is
+\[
+\rho(\eta)
+= \max\bigl(|1-\eta\lambda_{\min}|,\,|1-\eta\lambda_{\max}|\bigr).
+\]
+I want to minimize \(\rho(\eta)\) over \(\eta>0\).
+
+For \(\eta\in(0,2/\lambda_{\max})\) we have \(1-\eta\lambda_{\min}>0\). The
+two graphs \(1-\eta\lambda_{\min}\) (decreasing in \(\eta\)) and
+\(|1-\eta\lambda_{\max}|\) meet when
+\[
+1-\eta\lambda_{\min} = \eta\lambda_{\max}-1
+\qquad\Rightarrow\qquad
+\eta^\star = \frac{2}{\lambda_{\max}+\lambda_{\min}} = \frac{2}{7}.
+\]
+For \(\eta<\eta^\star\) the max is \(1-\eta\lambda_{\min}\), which gets
+smaller as \(\eta\) grows. For \(\eta>\eta^\star\) the max is
+\(\eta\lambda_{\max}-1\), which gets larger. So \(\eta^\star=2/7\) is the
+minimizer.
+
+Plugging it in,
+\[
+|1-\eta^\star\lambda_{\min}|
+= \Bigl|1-\frac{2}{7}\cdot 1\Bigr|
+= \frac57,
+\qquad
+|1-\eta^\star\lambda_{\max}|
+= \Bigl|1-\frac{2}{7}\cdot 6\Bigr|
+= \frac57.
+\]
+In terms of \(\kappa\),
+\[
+\frac{\kappa-1}{\kappa+1} = \frac{6-1}{6+1} = \frac57.
+\]
+So \(\eta^\star=2/7\approx 0.286\) and the per-iteration contraction is
+\(5/7\approx 0.714\).
+
+%----------------------------------------------------------------------
+\subsection*{(e) Regularization as a preconditioner}
+
+If \(\mat{A}\vct{q}=\lambda\vct{q}\), then
+\[
+(\mat{A}+\mu\mat{I})\vct{q}
+= \mat{A}\vct{q}+\mu\vct{q}
+= (\lambda+\mu)\vct{q}.
+\]
+So adding \(\mu\mat{I}\) shifts every eigenvalue by \(\mu\) and leaves the
+eigenvectors alone.
+
+\paragraph{(i)}
+\[
+L_\mu(\vct{w})
+= L(\vct{w}) + \frac{\mu}{2}\|\vct{w}\|_2^2
+\qquad\Rightarrow\qquad
+\nabla^2 L_\mu(\vct{w})
+= \mat{A}+\mu\mat{I}.
+\]
+The new eigenvalues are \(6+\mu\) and \(1+\mu\), so
+\[
+\kappa(\mu) = \frac{6+\mu}{1+\mu}.
+\]
+
+\paragraph{(ii)}
+\[
+\frac{6+\mu}{1+\mu} \le 3
+\qquad\Rightarrow\qquad
+6+\mu \le 3+3\mu
+\qquad\Rightarrow\qquad
+\mu \ge \tfrac32.
+\]
+The smallest such \(\mu\) is \(3/2\).
+
+\paragraph{(iii)}
+\begin{center}
+\begin{tabular}{rr}
+    \toprule
+    \(\mu\) & \(\kappa(\mu)=(6+\mu)/(1+\mu)\) \\
+    \midrule
+    \(0\)    & \(6\) \\
+    \(0.5\)  & \(13/3 \approx 4.333\) \\
+    \(1\)    & \(3.5\) \\
+    \(2\)    & \(8/3 \approx 2.667\) \\
+    \(5\)    & \(11/6 \approx 1.833\) \\
+    \(20\)   & \(26/21 \approx 1.238\) \\
+    \bottomrule
+\end{tabular}
+\end{center}
+\[
+\lim_{\mu\to\infty}\kappa(\mu) = 1.
+\]
+
+\paragraph{(iv)}
+Conditioning does get better as \(\mu\) grows, but \(\mu\to\infty\) is a
+bad idea because the penalty takes over the loss. The actual minimizer of
+\(L_\mu\) solves \((\mat{A}+\mu\mat{I})\vct{w}=\vct{b}\), which goes to
+\(\vct{0}\) as \(\mu\to\infty\). We are no longer minimizing \(L\); we are
+just shrinking the weights. What we trade away is the ability to fit the
+original problem (underfitting / too much weight decay).
+
+%----------------------------------------------------------------------
+\subsection*{(f) Low precision}
+
+Along the flattest eigendirection the useful per-step relative update is
+on the order of \(2/\kappa\). If \(\kappa\approx 10^5\), that is about
+\(2\cdot 10^{-5}\).
+
+FP8 only has roughly 2--3 bits of mantissa, so the relative precision is
+something like \(2^{-2}\) to \(2^{-3}\) (about \(0.12\)--\(0.25\)). An
+update of size \(10^{-5}\) is way smaller than that, so along the flat
+direction the increment either underflows or rounds to \(0\). Training
+looks stalled: the steep directions may still move, but you stop making
+progress toward the bottom of the ravine.
+
+Two mechanisms from Module 2 that are there specifically to reduce
+\(\kappa\): hardwired on-chip normalization (LayerNorm / BatchNorm), and
+diagonal adaptive preconditioners (Adam). Both try to reshape the curvature
+so \(\kappa\) is closer to \(1\).
 
 \newpage
 \section{Problem 3: PCA, SVD, and On-Chip Activations}
