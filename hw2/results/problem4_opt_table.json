@@ -1,0 +1,32 @@
+{
+  "sgd": {
+    "eta": 0.1,
+    "best_val": 0.8975,
+    "test_acc": 0.8856,
+    "first_87": 875
+  },
+  "momentum": {
+    "eta": 0.03,
+    "best_val": 0.8975,
+    "test_acc": 0.8913,
+    "first_87": 425
+  },
+  "adagrad": {
+    "eta": 0.01,
+    "best_val": 0.897,
+    "test_acc": 0.8869,
+    "first_87": 650
+  },
+  "rmsprop": {
+    "eta": 0.0003,
+    "best_val": 0.8983333333333333,
+    "test_acc": 0.8796,
+    "first_87": 675
+  },
+  "adam": {
+    "eta": 0.0003,
+    "best_val": 0.8971666666666667,
+    "test_acc": 0.893,
+    "first_87": 600
+  }
+}

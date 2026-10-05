@@ -10,9 +10,12 @@ __pycache__/
 .venv/
 venv/
 
-# Problem 4 runtime artifacts
+# Runtime artifacts
 hw1/data/
 hw1/checkpoints/
+hw2/data/
+hw2/__pycache__/
+hw2/*.log
 
 # OS / editor
 .DS_Store

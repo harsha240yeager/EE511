@@ -1,0 +1,27 @@
+{
+  "n_params": 535818,
+  "weights_bytes": 2143272,
+  "grads_bytes": 2143272,
+  "opt_state_bytes": {
+    "sgd": 0,
+    "momentum": 2143272,
+    "adagrad": 2143272,
+    "rmsprop": 2143272,
+    "adam": 4286544
+  },
+  "activation_cache": {
+    "X": 401408,
+    "H1": 262144,
+    "H2": 131072,
+    "mask1_bits": 65536,
+    "mask2_bits": 32768,
+    "masks": 12288.0,
+    "cache_total": 806912.0
+  },
+  "checkpoint_save_bytes": 405504.0,
+  "recompute_macs": 532480,
+  "full_step_macs_skip_dX": 1203712,
+  "full_step_macs_with_dX": 1605120,
+  "recompute_pct_skip_dX": 44.23649510846448,
+  "recompute_pct_with_dX": 33.17384370015949
+}

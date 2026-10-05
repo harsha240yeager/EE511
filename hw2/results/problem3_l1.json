@@ -1,0 +1,24 @@
+{
+  "l1": [
+    {
+      "l1": 0.001,
+      "test_acc": 0.4029,
+      "val_acc": 0.4118,
+      "sparsity_pct": 0.4427083333333333
+    },
+    {
+      "l1": 0.01,
+      "test_acc": 0.3461,
+      "val_acc": 0.347,
+      "sparsity_pct": 19.8828125
+    },
+    {
+      "l1": 0.03,
+      "test_acc": 0.2678,
+      "val_acc": 0.2656,
+      "sparsity_pct": 67.65950520833334
+    }
+  ],
+  "best_l2_sparsity_pct": 0.0,
+  "best_l2_test": 0.4006
+}

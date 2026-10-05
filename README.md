@@ -2,7 +2,7 @@
 
 USC, Fall 2026. Working notes and write-ups.
 
-- `HW0.md` — scratch notes for Homework 1, Problem 1
-- `hw1/main.tex` — Overleaf source for the HW1 write-up (compile this)
-- `hw1/problem3.py` — Problem 3 PCA/SVD script (`python problem3.py`)
-- `hw1/problem4.py` — Problem 4 LeNet-5 (`python problem4.py`)
+- `hw1/` — Homework 1 (Overleaf source `main.tex`, `problem3.py`, `problem4.py`)
+- `hw2/` — Homework 2 (`main.tex`, `problem3.py`, `problem4.py`)
+- `HW/HW0/` — packaged HW1 portal files
+- `HW/HW2/` — packaged HW2 portal files

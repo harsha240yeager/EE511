@@ -1,0 +1,74 @@
+{
+  "layers": [
+    {
+      "name": "fc1 784\u2192512",
+      "din": 784,
+      "dout": 512,
+      "params": 401920,
+      "forward_macs": 401408,
+      "gemm_fwd": [
+        128,
+        784,
+        512
+      ],
+      "gemm_dW": [
+        784,
+        128,
+        512
+      ],
+      "gemm_dX": [
+        128,
+        512,
+        784
+      ]
+    },
+    {
+      "name": "fc2 512\u2192256",
+      "din": 512,
+      "dout": 256,
+      "params": 131328,
+      "forward_macs": 131072,
+      "gemm_fwd": [
+        128,
+        512,
+        256
+      ],
+      "gemm_dW": [
+        512,
+        128,
+        256
+      ],
+      "gemm_dX": [
+        128,
+        256,
+        512
+      ]
+    },
+    {
+      "name": "fc3 256\u219210",
+      "din": 256,
+      "dout": 10,
+      "params": 2570,
+      "forward_macs": 2560,
+      "gemm_fwd": [
+        128,
+        256,
+        10
+      ],
+      "gemm_dW": [
+        256,
+        128,
+        10
+      ],
+      "gemm_dX": [
+        128,
+        10,
+        256
+      ]
+    }
+  ],
+  "total_params": 535818,
+  "total_forward_macs": 535040,
+  "first_layer_mac_frac": 0.7502392344497608,
+  "first_layer_skips": "dX = dZ1 @ W1.T  (input is data, not a parameter)"
+}
